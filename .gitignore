@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+
+# Misc
+.DS_Store
+*.log
+
+# Environment
+.env
+
+# Data (if large)
+*.csv
+*.json
+*.sqlite
+
+# Docker
+.docker

@@ -1,0 +1,26 @@
+services:
+  single-agent-rag:
+    build: .
+    volumes:
+      - ./src:/app/src
+      - ./data:/app/data
+    ports:
+      - "8000:8000"
+    environment:
+      - OLLAMA_MODEL=llama2
+      - OLLAMA_HOST=ollama
+      - PYTHONUNBUFFERED=1  
+    depends_on:
+      - ollama
+    command: python -u -m src.main
+  
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: always
+
+volumes:
+  ollama_data:
