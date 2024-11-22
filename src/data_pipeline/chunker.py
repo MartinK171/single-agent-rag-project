@@ -34,7 +34,6 @@ class DocumentChunker:
     def chunk_document(self, document: Dict) -> List[Chunk]:
         """
         Split a document into chunks.
-
         Args:
             document: Dictionary containing 'content' and 'metadata'
 
@@ -42,6 +41,7 @@ class DocumentChunker:
             List of Chunk objects
         """
         try:
+            self.logger.debug("Starting to chunk document")
             text = document['content']
             chunks = []
             
@@ -60,8 +60,11 @@ class DocumentChunker:
             chunk_index = 0
 
             while start < len(text):
-                # Find end position for current chunk
-                end = self._find_chunk_end(text, start)
+                end = start + self.chunk_size
+                
+                # Don't go beyond text length
+                if end > len(text):
+                    end = len(text)
                 
                 # Create chunk
                 chunk_text = text[start:end]
@@ -73,7 +76,7 @@ class DocumentChunker:
                     metadata={
                         **document['metadata'],
                         'chunk_index': chunk_index,
-                        'total_chunks': -1  # Will be updated later
+                        'total_chunks': -1
                     }
                 )
                 chunks.append(chunk)
@@ -81,6 +84,10 @@ class DocumentChunker:
                 # Move start position for next chunk
                 start = end - self.chunk_overlap
                 chunk_index += 1
+
+                # Break if we've reached the end
+                if end >= len(text):
+                    break
 
             # Update total chunks in metadata
             for chunk in chunks:
@@ -91,49 +98,6 @@ class DocumentChunker:
         except Exception as e:
             self.logger.error(f"Error chunking document: {str(e)}")
             raise
-
-    def _find_chunk_end(self, text: str, start: int) -> int:
-        """
-        Find the end position for a chunk, trying to break at sentence boundary.
-        """
-        # Calculate the ideal end position
-        ideal_end = start + self.chunk_size
-        
-        # If we're near the end of text, return the end
-        if ideal_end >= len(text):
-            return len(text)
-            
-        # Look for sentence boundaries near ideal end
-        window_start = max(ideal_end - 100, start + self.min_chunk_size)
-        window_end = min(ideal_end + 100, len(text))
-        text_window = text[window_start:window_end]
-        
-        # Common sentence endings
-        sentence_endings = ['. ', '! ', '? ', '.\n', '!\n', '?\n']
-        
-        # Find the best sentence boundary
-        best_end = None
-        for ending in sentence_endings:
-            # Look for sentence ending in the window
-            pos = text_window.find(ending)
-            if pos != -1:
-                absolute_pos = window_start + pos + len(ending)
-                if best_end is None or abs(absolute_pos - ideal_end) < abs(best_end - ideal_end):
-                    best_end = absolute_pos
-        
-        # If no good sentence boundary found, use ideal end
-        if best_end is None:
-            # Try to break at word boundary instead
-            text_window = text[ideal_end-10:ideal_end+10]
-            space_positions = [i for i, char in enumerate(text_window) if char.isspace()]
-            if space_positions:
-                # Find the closest space to the ideal end
-                closest_space = min(space_positions, key=lambda x: abs(x - 10))
-                best_end = ideal_end - 10 + closest_space
-            else:
-                best_end = ideal_end
-                
-        return best_end
 
     def chunk_batch(self, documents: List[Dict]) -> List[List[Chunk]]:
         """
