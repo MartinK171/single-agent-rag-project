@@ -245,15 +245,16 @@ Expanded version:"""
             
             # Build the combined result
             result = {
-                "query": query,
-                "transformed_query": transformed_query,
-                "query_type": route_response.query_type.value,
-                "confidence": route_response.confidence,
-                "response": response.get("response", ""),
-                "context_used": response.get("context_used", ""),
-                "success": response.get("success", False),
-                "metadata": route_response.metadata
-            }
+                    "query": query,
+                    "transformed_query": transformed_query,
+                    "query_type": route_response.query_type.value,
+                    "confidence": route_response.confidence,
+                    "response": response.get("response", ""),
+                    "context_used": response.get("context_used", ""),
+                    "success": response.get("success", False),
+                    "metadata": route_response.metadata,
+                    "keywords": route_response.metadata.get("keywords", [])
+                }
             
             # Merge any additional keys from the handler response
             result.update(response)
