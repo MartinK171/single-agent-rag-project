@@ -65,3 +65,8 @@ class ModelManager:
             settings.DEFAULT_MODEL = new_model
             return True
         return False
+    
+    def process_query(self, query: str) -> str:
+        """Process the query and return a response."""
+        # For now, return a placeholder response
+        return f"Processed query: {query}"

@@ -4,6 +4,9 @@ from langchain_ollama import OllamaLLM
 from src.router.chain import RouterChain
 from src.router.types import QueryType
 from src.vector_db.store import VectorStore
+from query_processing.processor import QueryProcessor
+import json
+
 
 class RAGPipeline:
     """Integrates routing, retrieval, and response generation."""
@@ -22,6 +25,7 @@ class RAGPipeline:
         )
         self.router = RouterChain(llm=self.llm)
         self.vector_store = vector_store
+        self.query_processor = QueryProcessor()
         
         if not self.vector_store:
             self.logger.warning("No vector store provided. Retrieval functionality will be limited.")
@@ -69,19 +73,38 @@ Expanded version:"""
             return self._expand_query(query)
         return query
 
-    def generate_response(self, query: str, context: str) -> Dict:
-        """Generate a response using LLM with context."""
+
+    def generate_response(self, query: str, context: str, template: str) -> Dict:
+        """Generate a response using LLM with context and template."""
         try:
-            # Augment query with context
-            prompt = self._augment_with_context(query, context)
-            
+            # Prepare the prompt using the template
+            prompt = template.format(
+                query=query,
+                context=context
+            )
             # Get LLM response
             response = self.llm.invoke(prompt)
             
+            # Log the LLM response
+            self.logger.debug(f"LLM response: {response}")
+            
+            # Parse the response as JSON
+            response_data = json.loads(response)
+            
+            # Extract the answer
+            answer = response_data.get("answer", "")
+            
             return {
-                "response": response,
-                "context_used": context,
-                "success": True
+                "response": answer,
+                "success": True,
+                "context_used": context
+            }
+        except json.JSONDecodeError as e:
+            self.logger.error(f"Failed to parse LLM response as JSON: {str(e)}")
+            return {
+                "response": "Failed to generate response",
+                "error": "Invalid response format from LLM",
+                "success": False
             }
         except Exception as e:
             self.logger.error(f"Error generating response: {str(e)}")
@@ -193,78 +216,70 @@ Expanded version:"""
     def process_query(self, query: str) -> Dict:
         """Process a query through the complete RAG pipeline."""
         try:
-            # Route the query
-            route_response = self.router.route(query)
-            
-            # Transform query if needed
-            transformed_query = self._transform_query(
-                query, 
-                route_response.query_type
-            )
-            
-            # Initialize the response dictionary
-            response = {}
-            
-            # Process based on query type
-            if route_response.query_type == QueryType.RETRIEVAL:
-                # Handle retrieval-type queries
-                retrieval_result = self._handle_retrieval(
-                    transformed_query,
-                    route_response.retrieval_query
-                )
-                
-                if retrieval_result.get("context"):
-                    # If context is available, generate a response using it
-                    response = self.generate_response(
-                        query,
-                        retrieval_result["context"]
-                    )
-                else:
-                    # If no context, determine if an error occurred
-                    if "error" in retrieval_result:
-                        response = {
-                            "response": "Failed to process direct query",
-                            "success": False,
-                            "error": retrieval_result["error"]
-                        }
-                    else:
-                        response = {
-                            "response": "No relevant information found",
-                            "success": False
-                        }
-                        
-            elif route_response.query_type == QueryType.CALCULATION:
-                # Handle calculation-type queries
-                response = self._handle_calculation(transformed_query)
-            elif route_response.query_type == QueryType.CLARIFICATION:
-                # Handle clarification-type queries
-                response = self._handle_clarification(transformed_query)
-            else:  # DIRECT
-                # Handle direct-type queries
-                response = self._handle_direct(transformed_query)
-            
-            # Build the combined result
+            # Analyze and process the query
+            processed_result = self.query_processor.process(query)
+            processed_query = processed_result.processed_query
+            processing_path = processed_result.processing_path
+            analysis = processed_result.analysis
+            suggested_template = processed_result.suggested_template
+
+            # Log the processing path and analysis
+            self.logger.info(f"Processing path: {processing_path}")
+            self.logger.debug(f"Query analysis: {analysis}")
+
+            # Use the processed query for routing
+            route_response = self.router.route(processed_query)
+            query_type = route_response.query_type
+            confidence = route_response.confidence
+
+            # Handle based on query type
+            if query_type == QueryType.RETRIEVAL:
+                # Perform retrieval and generate response
+                retrieval_result = self._handle_retrieval(processed_query)
+                response = self.generate_response(processed_query, retrieval_result.get('context', ''), suggested_template)
+            elif query_type == QueryType.DIRECT:
+                # Directly generate response without retrieval
+                response = self._handle_direct(processed_query, suggested_template)
+            elif query_type == QueryType.CALCULATION:
+                # Handle calculation queries
+                response = self._handle_calculation(processed_query, suggested_template)
+            elif query_type == QueryType.CLARIFICATION:
+                # Ask for clarification
+                response = self._handle_clarification(processed_query)
+            else:
+                response = {"response": "Unsupported query type.", "success": False}
+
+            # Record success in the monitor
+            self.query_processor.monitor.record_success(query, processed_result)
+
+            # Build the final result
             result = {
                 "query": query,
-                "transformed_query": transformed_query,
-                "query_type": route_response.query_type.value,
-                "confidence": route_response.confidence,
+                "processed_query": processed_query,
+                "query_type": query_type.value,
+                "confidence": confidence,
                 "response": response.get("response", ""),
-                "context_used": response.get("context_used", ""),
                 "success": response.get("success", False),
-                "metadata": route_response.metadata
+                "metadata": {
+                    "processing_path": processing_path,
+                    "analysis": analysis,
+                    "route_metadata": route_response.metadata,
+                    "processing_metadata": processed_result.metadata
+                }
             }
-            
-            # Merge any additional keys from the handler response
-            result.update(response)
-            
+
             return result
-                
+
         except Exception as e:
             self.logger.error(f"Pipeline error: {str(e)}")
+            # Record failure in the monitor
+            self.query_processor.monitor.record_failure(query, str(e))
             return {
                 "error": str(e),
                 "query": query,
                 "success": False,
-                "response": "Failed to process query"
+                "response": "Failed to process query",
+                "query_type": "",
+                "confidence": 0.0,
             }
+

@@ -3,44 +3,59 @@ from .analyzer import QueryAnalysis
 
 class ResponseTemplate:
     """Manages response templates for different query types."""
-    
-    # Template definitions
+
     TEMPLATES = {
         "advanced": """
-        Detailed Response:
-        
-        Analysis: {analysis}
-        
-        Explanation:
-        {explanation}
-        
-        Additional Information:
-        {additional_info}
+        You are an assistant that provides detailed answers.
+
+        Question: {query}
+
+        Context:
+        {context}
+
+        Please provide a detailed answer in JSON format:
+
+        {{
+            "answer": "<Your detailed answer here>"
+        }}
         """,
-        
         "entity_focused": """
-        Entity Information:
-        
-        Entities Found: {entities}
-        
-        Details:
-        {details}
+        You are an assistant that focuses on entities.
+
+        Question: {query}
+
+        Entities Detected: {entities}
+
+        Please provide an answer in JSON format:
+
+        {{
+            "answer": "<Your answer here>"
+        }}
         """,
-        
         "question": """
-        Answer:
-        {answer}
-        
-        Reasoning:
-        {reasoning}
+        You are an assistant that answers questions.
+
+        Question: {query}
+
+        Please provide an answer in JSON format:
+
+        {{
+            "answer": "<Your answer here>"
+        }}
         """,
-        
         "standard": """
-        Response:
-        {response}
+        You are an assistant.
+
+        {query}
+
+        Please provide an answer in JSON format:
+
+        {{
+            "answer": "<Your answer here>"
+        }}
         """
     }
-    
+
     @classmethod
     def get_template(cls, path: str, analysis: QueryAnalysis) -> str:
         """Get appropriate template based on path and analysis."""
