@@ -1,9 +1,6 @@
 services:
   single-agent-rag:
     build: .
-    volumes:
-      - ./src:/app/src
-      - ./data:/app/data
     ports:
       - "8000:8000"
     environment:
