@@ -5,47 +5,33 @@ import re
 
 @dataclass
 class QueryAnalysis:
-    """Results of query analysis."""
-    complexity: float = 0.0  # 0-1 score of query complexity
-    keywords: list[str] = field(default_factory=list)   # Important keywords from query
-    entities: list[str] = field(default_factory=list)  # Named entities found
-    topic: Optional[str] = None  # Main topic if identified
-    metadata: Dict = field(default_factory=dict)   # Additional analysis info
+    complexity: float = 0.0
+    keywords: list[str] = field(default_factory=list)
+    entities: list[str] = field(default_factory=list)
+    topic: Optional[str] = None
+    temporal_aspects: Dict = field(default_factory=dict)
+    calculation_aspects: Dict = field(default_factory=dict)
+    metadata: Dict = field(default_factory=dict)
+
 
 class QueryAnalyzer:
-    """Analyzes queries for better processing."""
-    
     def __init__(self):
         self.logger = logging.getLogger(__name__)
-        
+    
     def analyze(self, query: str) -> QueryAnalysis:
-        """
-        Analyze a query to determine its characteristics.
-        
-        Args:
-            query: The query string to analyze
-            
-        Returns:
-            QueryAnalysis containing analysis results
-        """
         try:
-            # Extract keywords
             keywords = self._extract_keywords(query)
-            
-            # Find entities
             entities = self._find_entities(query)
-            
-            # Calculate complexity
             complexity = self._calculate_complexity(query)
-            
-            # Identify topic
-            topic = self._identify_topic(query)
+            temporal_aspects = self._analyze_temporal_aspects(query)
+            calculation_aspects = self._analyze_calculation_aspects(query)
             
             return QueryAnalysis(
                 complexity=complexity,
                 keywords=keywords,
                 entities=entities,
-                topic=topic,
+                temporal_aspects=temporal_aspects,
+                calculation_aspects=calculation_aspects,
                 metadata={
                     "length": len(query),
                     "word_count": len(query.split()),
@@ -55,13 +41,43 @@ class QueryAnalyzer:
             
         except Exception as e:
             self.logger.error(f"Error analyzing query: {str(e)}")
-            return QueryAnalysis(
-                complexity=0.5,
-                keywords=[],
-                entities=[],
-                topic=None,
-                metadata={"error": str(e)}
-            )
+            return QueryAnalysis()
+
+    def _analyze_temporal_aspects(self, query: str) -> Dict:
+        time_indicators = {
+            'recent': True, 'latest': True, 'last': True,
+            'current': True, 'now': True, 'today': True
+        }
+        return {
+            "requires_current_info": any(i in query.lower() for i in time_indicators),
+            "temporal_indicators": [i for i in time_indicators if i in query.lower()]
+        }
+
+    def _analyze_calculation_aspects(self, query: str) -> Dict:
+        calc_indicators = ['+', '-', '*', '/', '%', 'calculate', 'sum', 'multiply']
+        return {
+            "requires_calculation": any(i in query for i in calc_indicators),
+            "has_numbers": bool(re.search(r'\d+', query))
+        }
+    
+    def _identify_topic(self, query: str) -> Optional[str]:
+        """Identify main topic of query."""
+        topic_indicators = {
+            'rag': 'retrieval_augmentation',
+            'math': 'calculation',
+            'calculate': 'calculation',
+            'news': 'web_search',
+            'latest': 'web_search',
+            'recent': 'web_search',
+            'document': 'retrieval',
+            'docs': 'retrieval'
+        }
+        
+        words = query.lower().split()
+        for word in words:
+            if word in topic_indicators:
+                return topic_indicators[word]
+        return None
             
     def _extract_keywords(self, query: str) -> list[str]:
         """Extract important keywords from query."""
