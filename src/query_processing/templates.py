@@ -6,55 +6,48 @@ class ResponseTemplate:
 
     TEMPLATES = {
         "advanced": """
-        You are an assistant that provides detailed answers.
+You are an assistant that provides detailed answers.
 
-        Question: {query}
+Question: {query}
 
-        Context:
-        {context}
+Context:
+{context}
 
-        Please provide a detailed answer in JSON format:
+Please provide a detailed answer in valid JSON format, **without any code fences or extra formatting**, ensuring all control characters (like newlines and tabs) are properly escaped, and the JSON is on a single line without any line breaks:
 
-        {{
-            "answer": "<Your detailed answer here>"
-        }}
-        """,
+{{"answer": "<Your detailed answer here>"}}
+""",
         "entity_focused": """
-        You are an assistant that focuses on entities.
+You are an assistant that focuses on entities.
 
-        Question: {query}
+Question: {query}
 
-        Entities Detected: {entities}
+Entities Detected: {entities}
 
-        Please provide an answer in JSON format:
+Please provide an answer in valid JSON format, **without any code fences or extra formatting**, ensuring all control characters (like newlines and tabs) are properly escaped, and the JSON is on a single line without any line breaks:
 
-        {{
-            "answer": "<Your answer here>"
-        }}
-        """,
+{{"answer": "<Your answer here>"}}
+""",
         "question": """
-        You are an assistant that answers questions.
+You are an assistant that answers questions.
 
-        Question: {query}
+Question: {query}
 
-        Please provide an answer in JSON format:
+Please provide an answer in valid JSON format, **without any code fences or extra formatting**, ensuring all control characters (like newlines and tabs) are properly escaped, and the JSON is on a single line without any line breaks:
 
-        {{
-            "answer": "<Your answer here>"
-        }}
-        """,
+{{"answer": "<Your answer here>"}}
+""",
         "standard": """
-        You are an assistant.
+You are an assistant.
 
-        {query}
+{query}
 
-        Please provide an answer in JSON format:
+Please provide an answer in valid JSON format, **without any code fences or extra formatting**, ensuring all control characters (like newlines and tabs) are properly escaped, and the JSON is on a single line without any line breaks:
 
-        {{
-            "answer": "<Your answer here>"
-        }}
-        """
+{{"answer": "<Your answer here>"}}
+"""
     }
+
 
     @classmethod
     def get_template(cls, path: str, analysis: QueryAnalysis) -> str:

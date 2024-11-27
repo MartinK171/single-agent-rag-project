@@ -1,19 +1,20 @@
 from typing import Dict, Optional
 import logging
+import json
 from langchain_ollama import OllamaLLM
 from src.router.chain import RouterChain
 from src.router.types import QueryType
 from src.vector_db.store import VectorStore
 from query_processing.processor import QueryProcessor
-import json
-
+from query_processing.analyzer import QueryAnalysis
+import re
 
 class RAGPipeline:
     """Integrates routing, retrieval, and response generation."""
-    
+
     def __init__(self, 
-                llm: Optional[OllamaLLM] = None,
-                vector_store: Optional[VectorStore] = None):
+                 llm: Optional[OllamaLLM] = None,
+                 vector_store: Optional[VectorStore] = None):
         """Initialize the RAG pipeline."""
         self.logger = logging.getLogger(__name__)
         
@@ -73,39 +74,63 @@ Expanded version:"""
             return self._expand_query(query)
         return query
 
-
-    def generate_response(self, query: str, context: str, template: str) -> Dict:
+    def generate_response(self, query: str, context: str, template: str, analysis: QueryAnalysis) -> Dict:
         """Generate a response using LLM with context and template."""
         try:
+            # Extract values for placeholders
+            entity_details = ', '.join(analysis.entities) if analysis.entities else 'No specific entities identified.'
+            complexity_analysis = f"Complexity score: {analysis.complexity}" if analysis.complexity > 0.7 else ''
+            entities = ', '.join(analysis.entities) if analysis.entities else 'N/A'
+
             # Prepare the prompt using the template
             prompt = template.format(
                 query=query,
-                context=context
+                context=context,
+                entity_details=entity_details,
+                complexity_analysis=complexity_analysis,
+                entities=entities
             )
+
             # Get LLM response
             response = self.llm.invoke(prompt)
-            
-            # Log the LLM response
-            self.logger.debug(f"LLM response: {response}")
-            
-            # Parse the response as JSON
-            response_data = json.loads(response)
-            
-            # Extract the answer
-            answer = response_data.get("answer", "")
-            
-            return {
-                "response": answer,
-                "success": True,
-                "context_used": context
-            }
-        except json.JSONDecodeError as e:
-            self.logger.error(f"Failed to parse LLM response as JSON: {str(e)}")
-            return {
-                "response": "Failed to generate response",
-                "error": "Invalid response format from LLM",
-                "success": False
-            }
+            self.logger.debug(f"Raw LLM response: {response}")
+
+            try:
+                # Clean up the response before parsing
+                # Replace line breaks with \n
+                cleaned_response = response.replace('\n', '\\n')
+                # Replace any unescaped quotes within the answer
+                cleaned_response = re.sub(r'(?<!\\)"(?![:,}\]])', '\\"', cleaned_response)
+                # Attempt to parse the cleaned JSON
+                response_data = json.loads(cleaned_response)
+                answer = response_data.get("answer", "")
+                
+                return {
+                    "response": answer,
+                    "success": True,
+                    "context_used": context
+                }
+            except json.JSONDecodeError:
+                # If that fails, try to extract just the answer portion
+                answer_match = re.search(r'"answer"\s*:\s*"([^"]+)"', response)
+                if answer_match:
+                    return {
+                        "response": answer_match.group(1),
+                        "success": True,
+                        "context_used": context
+                    }
+                else:
+                    # Last resort: try to extract text between curly braces
+                    content_match = re.search(r'\{(.*?)\}', response, re.DOTALL)
+                    if content_match:
+                        return {
+                            "response": content_match.group(1).strip(),
+                            "success": True,
+                            "context_used": context
+                        }
+                
+                raise ValueError(f"Could not extract valid response from LLM output: {response}")
+                
         except Exception as e:
             self.logger.error(f"Error generating response: {str(e)}")
             return {
@@ -113,6 +138,8 @@ Expanded version:"""
                 "error": str(e),
                 "success": False
             }
+
+
 
     def _handle_retrieval(self, query: str, retrieval_query: Optional[str] = None) -> Dict:
         """Handle retrieval-type queries."""
@@ -142,8 +169,15 @@ Expanded version:"""
     def _handle_retrieval_fallback(self, query: str) -> Dict:
         """Fallback for when retrieval fails."""
         try:
-            # Try direct response without context
-            return self._handle_direct(query)
+            default_analysis = QueryAnalysis(
+                complexity=0.0,
+                keywords=[],
+                entities=[],
+                topic=None,
+                metadata={}
+            )
+            # Use the default_analysis in the _handle_direct call
+            return self._handle_direct(query, template=self.get_default_template(), analysis=default_analysis)
         except Exception as e:
             self.logger.error(f"Error in retrieval fallback: {str(e)}")
             return {
@@ -152,13 +186,13 @@ Expanded version:"""
                 "error": str(e)
             }
 
-    def _handle_direct(self, query: str) -> Dict:
+    def _handle_direct(self, query: str, template: str, analysis: QueryAnalysis) -> Dict:
         """Handle direct-type queries."""
         try:
-            response = self.llm.invoke(query)
+            response = self.generate_response(query, context='', template=template, analysis=analysis)
             return {
-                "response": response,
-                "success": True,
+                "response": response.get("response", ""),
+                "success": response.get("success", False),
                 "query": query
             }
         except Exception as e:
@@ -169,15 +203,12 @@ Expanded version:"""
                 "error": str(e)
             }
 
-    def _handle_calculation(self, query: str) -> Dict:
+    def _handle_calculation(self, query: str, template: str, analysis: QueryAnalysis) -> Dict:
         """Handle calculation-type queries."""
         try:
-            # For calculation queries, we might want to format them specifically
-            prompt = f"Please calculate: {query}"
-            response = self.llm.invoke(prompt)
-            
+            response = self.generate_response(query, context='', template=template, analysis=analysis)
             return {
-                "response": response,
+                "response": response.get("response", ""),
                 "success": True,
                 "query": query
             }
@@ -236,13 +267,18 @@ Expanded version:"""
             if query_type == QueryType.RETRIEVAL:
                 # Perform retrieval and generate response
                 retrieval_result = self._handle_retrieval(processed_query)
-                response = self.generate_response(processed_query, retrieval_result.get('context', ''), suggested_template)
+                response = self.generate_response(
+                    processed_query,
+                    retrieval_result.get('context', ''),
+                    suggested_template,
+                    analysis
+                )
             elif query_type == QueryType.DIRECT:
                 # Directly generate response without retrieval
-                response = self._handle_direct(processed_query, suggested_template)
+                response = self._handle_direct(processed_query, suggested_template, analysis)
             elif query_type == QueryType.CALCULATION:
                 # Handle calculation queries
-                response = self._handle_calculation(processed_query, suggested_template)
+                response = self._handle_calculation(processed_query, suggested_template, analysis)
             elif query_type == QueryType.CLARIFICATION:
                 # Ask for clarification
                 response = self._handle_clarification(processed_query)
@@ -282,4 +318,18 @@ Expanded version:"""
                 "query_type": "",
                 "confidence": 0.0,
             }
+
+    def get_default_template(self) -> str:
+        """Get a default template for generating responses."""
+        # Return a basic template string
+        return """You are an assistant.
+
+{query}
+
+Please provide an answer in JSON format:
+
+{{
+    "answer": "<Your answer here>"
+}}
+"""
 
