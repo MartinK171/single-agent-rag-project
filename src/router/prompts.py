@@ -6,6 +6,10 @@ Analyze the query and determine if it requires:
 3. Mathematical calculations (CALCULATION)
 4. Clarification from user (CLARIFICATION)
 
+**IMPORTANT** 
+If it is a joke, then it should always be a direct response.
+
+
 Query: {query}
 
 Respond in valid JSON format on a single line without any line breaks, ensuring all control characters are properly escaped:

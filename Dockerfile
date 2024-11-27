@@ -17,11 +17,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Set environment variables
-ENV PYTHONPATH=/app:/app/src
+ENV PYTHONPATH=/app/src
 ENV OLLAMA_HOST=ollama
 
 # Expose the port
 EXPOSE 8000
 
 # Start the API server using Uvicorn
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
