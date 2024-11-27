@@ -8,7 +8,8 @@ Analyze the query and determine if it requires:
 
 Query: {query}
 
-Respond in JSON format:
+Respond in valid JSON format on a single line without any line breaks, ensuring all control characters are properly escaped:
+
 {{
     "query_type": "RETRIEVAL|DIRECT|CALCULATION|CLARIFICATION",
     "confidence": "<float between 0 and 1>",

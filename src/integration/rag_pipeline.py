@@ -6,7 +6,8 @@ from src.router.chain import RouterChain
 from src.router.types import QueryType
 from src.vector_db.store import VectorStore
 from query_processing.processor import QueryProcessor
-from query_processing.analyzer import QueryAnalysis  # Import added here
+from query_processing.analyzer import QueryAnalysis
+import re
 
 class RAGPipeline:
     """Integrates routing, retrieval, and response generation."""
@@ -92,28 +93,44 @@ Expanded version:"""
 
             # Get LLM response
             response = self.llm.invoke(prompt)
+            self.logger.debug(f"Raw LLM response: {response}")
 
-            # Log the LLM response
-            self.logger.debug(f"LLM response: {response}")
-
-            # Parse the response as JSON
-            response_data = json.loads(response)
-
-            # Extract the answer
-            answer = response_data.get("answer", "")
-
-            return {
-                "response": answer,
-                "success": True,
-                "context_used": context
-            }
-        except json.JSONDecodeError as e:
-            self.logger.error(f"Failed to parse LLM response as JSON: {str(e)}")
-            return {
-                "response": "Failed to generate response",
-                "error": "Invalid response format from LLM",
-                "success": False
-            }
+            try:
+                # Clean up the response before parsing
+                # Replace line breaks with \n
+                cleaned_response = response.replace('\n', '\\n')
+                # Replace any unescaped quotes within the answer
+                cleaned_response = re.sub(r'(?<!\\)"(?![:,}\]])', '\\"', cleaned_response)
+                # Attempt to parse the cleaned JSON
+                response_data = json.loads(cleaned_response)
+                answer = response_data.get("answer", "")
+                
+                return {
+                    "response": answer,
+                    "success": True,
+                    "context_used": context
+                }
+            except json.JSONDecodeError:
+                # If that fails, try to extract just the answer portion
+                answer_match = re.search(r'"answer"\s*:\s*"([^"]+)"', response)
+                if answer_match:
+                    return {
+                        "response": answer_match.group(1),
+                        "success": True,
+                        "context_used": context
+                    }
+                else:
+                    # Last resort: try to extract text between curly braces
+                    content_match = re.search(r'\{(.*?)\}', response, re.DOTALL)
+                    if content_match:
+                        return {
+                            "response": content_match.group(1).strip(),
+                            "success": True,
+                            "context_used": context
+                        }
+                
+                raise ValueError(f"Could not extract valid response from LLM output: {response}")
+                
         except Exception as e:
             self.logger.error(f"Error generating response: {str(e)}")
             return {
@@ -121,6 +138,8 @@ Expanded version:"""
                 "error": str(e),
                 "success": False
             }
+
+
 
     def _handle_retrieval(self, query: str, retrieval_query: Optional[str] = None) -> Dict:
         """Handle retrieval-type queries."""
@@ -150,8 +169,15 @@ Expanded version:"""
     def _handle_retrieval_fallback(self, query: str) -> Dict:
         """Fallback for when retrieval fails."""
         try:
-            # Try direct response without context
-            return self._handle_direct(query, template=self.get_default_template(), analysis=QueryAnalysis())
+            default_analysis = QueryAnalysis(
+                complexity=0.0,
+                keywords=[],
+                entities=[],
+                topic=None,
+                metadata={}
+            )
+            # Use the default_analysis in the _handle_direct call
+            return self._handle_direct(query, template=self.get_default_template(), analysis=default_analysis)
         except Exception as e:
             self.logger.error(f"Error in retrieval fallback: {str(e)}")
             return {

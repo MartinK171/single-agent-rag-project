@@ -1,16 +1,16 @@
 from typing import Dict, Optional
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import re
 
 @dataclass
 class QueryAnalysis:
     """Results of query analysis."""
-    complexity: float  # 0-1 score of query complexity
-    keywords: list[str]  # Important keywords from query
-    entities: list[str]  # Named entities found
-    topic: Optional[str]  # Main topic if identified
-    metadata: Dict  # Additional analysis info
+    complexity: float = 0.0  # 0-1 score of query complexity
+    keywords: list[str] = field(default_factory=list)   # Important keywords from query
+    entities: list[str] = field(default_factory=list)  # Named entities found
+    topic: Optional[str] = None  # Main topic if identified
+    metadata: Dict = field(default_factory=dict)   # Additional analysis info
 
 class QueryAnalyzer:
     """Analyzes queries for better processing."""

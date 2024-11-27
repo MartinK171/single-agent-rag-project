@@ -1,9 +1,25 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 from integration.rag_pipeline import RAGPipeline
+from langchain_ollama import OllamaLLM  # Added import
+from src.vector_db.store import VectorStore  # Added import
 
 app = FastAPI()
-rag_pipeline = RAGPipeline()  # Initialize the RAGPipeline
+
+# Initialize the vector store
+vector_store = VectorStore(
+    collection_name='test_init'
+)
+
+# Initialize the LLM
+llm = OllamaLLM(
+    model="llama2",
+    host="ollama",
+    port=11434
+)
+
+# Initialize the RAGPipeline with llm and vector_store
+rag_pipeline = RAGPipeline(llm=llm, vector_store=vector_store)
 
 class QueryRequest(BaseModel):
     query: str

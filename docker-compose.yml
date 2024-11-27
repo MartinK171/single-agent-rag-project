@@ -15,7 +15,9 @@ services:
     depends_on:
       - ollama
       - qdrant
-  
+    networks:
+      - app-network 
+
   ollama:
     image: ollama/ollama:latest
     ports:
@@ -23,6 +25,8 @@ services:
     volumes:
       - ollama_data:/root/.ollama
     restart: always
+    networks:
+      - app-network  
 
   qdrant:
     image: qdrant/qdrant:latest
@@ -32,7 +36,12 @@ services:
     volumes:
       - qdrant_data:/qdrant/storage
     restart: always
+    networks:
+      - app-network  
 
 volumes:
   ollama_data:
   qdrant_data:
+
+networks:
+  app-network: 
