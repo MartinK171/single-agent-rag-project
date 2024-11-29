@@ -3,7 +3,7 @@ from qdrant_client import QdrantClient
 from qdrant_client.http import models
 import os
 import logging
-import numpy as np  # Add this import
+import numpy as np
 from .embeddings import EmbeddingGenerator
 
 class VectorStore:
@@ -14,7 +14,7 @@ class VectorStore:
                  embedding_generator: Optional[EmbeddingGenerator] = None):
         """Initialize vector store."""
         self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(logging.DEBUG)  # Set to DEBUG for more detailed logs
+        self.logger.setLevel(logging.DEBUG)
         
         self.collection_name = collection_name
         self.embedding_generator = embedding_generator or EmbeddingGenerator()
@@ -124,7 +124,7 @@ class VectorStore:
                 collection_name=self.collection_name,
                 query_vector=query_embedding.tolist(),
                 limit=limit,
-                score_threshold=0.3  # Lower threshold
+                score_threshold=0.3  
             )
             
             self.logger.debug(f"Raw search results: {results}")
@@ -133,7 +133,7 @@ class VectorStore:
             for hit in results:
                 formatted_results.append({
                     'score': float(hit.score),
-                    'text': hit.payload.get('content', ''),  # Ensure content is retrieved
+                    'text': hit.payload.get('content', ''), 
                     'metadata': {k:v for k,v in hit.payload.items() if k != 'content'}
                 })
                 

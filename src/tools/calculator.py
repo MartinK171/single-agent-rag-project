@@ -1,7 +1,7 @@
 import ast
 import operator
 import logging
-from typing import Union, Optional
+from typing import Optional
 
 class Calculator:
     def __init__(self):

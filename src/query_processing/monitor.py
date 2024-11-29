@@ -1,7 +1,6 @@
-from typing import Dict, Optional
+from typing import Dict
 import logging
 from datetime import datetime
-import json
 from .result import ProcessingResult 
 
 class QueryMonitor:
