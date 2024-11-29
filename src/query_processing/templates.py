@@ -1,4 +1,3 @@
-from typing import Dict, Optional
 from .analyzer import QueryAnalysis
 
 class ResponseTemplate:

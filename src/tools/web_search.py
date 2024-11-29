@@ -1,13 +1,11 @@
-from typing import List, Dict, Optional
+from typing import List, Dict
 import logging
 import time
 import random
-import json
 from urllib.parse import quote
 import requests
 from duckduckgo_search import DDGS
 from bs4 import BeautifulSoup
-from datetime import datetime, timedelta
 
 class WebSearchTool:
     """Enhanced web search tool with multiple search services and robust error handling."""

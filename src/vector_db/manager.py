@@ -116,6 +116,6 @@ class VectorStoreManager:
         return {
             "name": store_name,
             "collection_name": store.collection_name,
-            "embedding_dimension": 384,  # Using default from your VectorStore class
+            "embedding_dimension": 384,  # Using default from the VectorStore class
             "distance": "cosine"
         }

@@ -1,7 +1,6 @@
-from typing import Dict, Optional, List
+from typing import Dict, List
 import re
 import html
-from pathlib import Path
 import logging
 
 class DocumentProcessor:
