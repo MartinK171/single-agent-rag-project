@@ -176,7 +176,7 @@ Using Postman, create a new POST request:
 - Request Type: POST
 - Body: form-data
 - Form Fields:
-  - Key: `file` (Type: File)
+  - Key: `files` (Type: File)
     Value: Select `rag_systems_overview.txt`
   - Key: `store_name` (Type: Text)
     Value: `technical_docs`
@@ -192,7 +192,7 @@ Create another POST request with the same URL but different form data:
 - Request Type: POST
 - Body: form-data
 - Form Fields:
-  - Key: `file` (Type: File)
+  - Key: `files` (Type: File)
     Value: Select `generic-company-profile.md`
   - Key: `store_name` (Type: Text)
     Value: `business_docs`
